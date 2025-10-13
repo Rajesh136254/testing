@@ -1,0 +1,55 @@
+/* Base styles */
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+/* Header styles */
+header {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Navigation styles */
+nav {
+  width: 100%;
+}
+
+/* Logo styles */
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* Desktop menu styles */
+.desktop-menu {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .desktop-menu {
+    display: flex;
+  }
+}
+
+/* Mobile menu styles */
+.mobile-menu {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .mobile-menu {
+    display: none;
+  }
+}
+
+/* Router outlet container */
+.router-container {
+  padding: 1rem;
+  margin-top: 4rem; /* Space for fixed header */
+}

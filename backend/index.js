@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path'); // NEW: Import the 'path' module
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 require('dotenv').config();
@@ -133,6 +134,24 @@ app.get('/api/stats', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
+
+// =================================================================
+// NEW: SERVE THE ANGULAR FRONTEND
+// =================================================================
+
+// Define the path to the compiled Angular application
+const angularAppPath = path.join(__dirname, 'frontend/frontend-app/dist/frontend-app');
+
+// Tell Express to serve static files from this path
+app.use(express.static(angularAppPath));
+
+// For any request that doesn't match an API route, send the index.html file
+// This enables Angular's client-side routing (e.g., /dashboard, /profile)
+// IMPORTANT: This route must be AFTER all your API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(angularAppPath, 'index.html'));
+});
+
 
 // Initialize schema and start server
 const PORT = process.env.PORT || 3000;

@@ -1,7 +1,5 @@
 const express = require('express');
-const path = require('path'); // NEW: Import the 'path' module
 const cors = require('cors');
-const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const app = express();
@@ -13,10 +11,10 @@ const db = require('./db');
 // Initialize schema
 async function initializeSchema() {
   try {
-    // Create users table
+    // Create users table (PostgreSQL syntax)
     await db.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         email VARCHAR(150) NOT NULL UNIQUE,
         role VARCHAR(50) DEFAULT 'User',
@@ -25,10 +23,10 @@ async function initializeSchema() {
       )
     `);
 
-    // Create messages table
+    // Create messages table (PostgreSQL syntax)
     await db.query(`
       CREATE TABLE IF NOT EXISTS messages (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         email VARCHAR(150) NOT NULL,
         subject VARCHAR(200) NOT NULL,
@@ -46,7 +44,7 @@ async function initializeSchema() {
 // Users API Routes
 app.get('/api/users', async (req, res) => {
   try {
-    const [users] = await db.query('SELECT * FROM users');
+    const { rows: users } = await db.query('SELECT * FROM users');
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -56,13 +54,13 @@ app.get('/api/users', async (req, res) => {
 
 app.post('/api/users', async (req, res) => {
   const { name, email, role = 'User' } = req.body;
-  
+
   try {
-    const [result] = await db.query(
-      'INSERT INTO users (name, email, role) VALUES (?, ?, ?)',
+    const result = await db.query(
+      'INSERT INTO users (name, email, role) VALUES ($1, $2, $3) RETURNING *',
       [name, email, role]
     );
-    res.status(201).json({ id: result.insertId, name, email, role, status: 'active' });
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ error: 'Failed to create user' });
@@ -75,7 +73,7 @@ app.patch('/api/users/:id', async (req, res) => {
 
   try {
     await db.query(
-      'UPDATE users SET status = ? WHERE id = ?',
+      'UPDATE users SET status = $1 WHERE id = $2',
       [status, id]
     );
     res.json({ id, status });
@@ -89,7 +87,7 @@ app.delete('/api/users/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    await db.query('DELETE FROM users WHERE id = ?', [id]);
+    await db.query('DELETE FROM users WHERE id = $1', [id]);
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting user:', error);
@@ -103,7 +101,7 @@ app.post('/api/contact', async (req, res) => {
 
   try {
     await db.query(
-      'INSERT INTO messages (name, email, subject, message) VALUES (?, ?, ?, ?)',
+      'INSERT INTO messages (name, email, subject, message) VALUES ($1, $2, $3, $4)',
       [name, email, subject, message]
     );
     res.status(201).json({ success: true });
@@ -116,18 +114,18 @@ app.post('/api/contact', async (req, res) => {
 // Stats API
 app.get('/api/stats', async (req, res) => {
   try {
-    const [[totalUsers]] = await db.query('SELECT COUNT(*) as count FROM users');
-    const [[activeUsers]] = await db.query('SELECT COUNT(*) as count FROM users WHERE status = ?', ['active']);
-    const [[newUsersToday]] = await db.query(
-      'SELECT COUNT(*) as count FROM users WHERE DATE(created_at) = CURDATE()'
+    const totalUsers = await db.query('SELECT COUNT(*) as count FROM users');
+    const activeUsers = await db.query('SELECT COUNT(*) as count FROM users WHERE status = $1', ['active']);
+    const newUsersToday = await db.query(
+      'SELECT COUNT(*) as count FROM users WHERE DATE(created_at) = CURRENT_DATE'
     );
-    const [[totalMessages]] = await db.query('SELECT COUNT(*) as count FROM messages');
+    const totalMessages = await db.query('SELECT COUNT(*) as count FROM messages');
 
     res.json({
-      totalUsers: totalUsers.count,
-      activeUsers: activeUsers.count,
-      newUsersToday: newUsersToday.count,
-      totalMessages: totalMessages.count
+      totalUsers: totalUsers.rows[0].count,
+      activeUsers: activeUsers.rows[0].count,
+      newUsersToday: newUsersToday.rows[0].count,
+      totalMessages: totalMessages.rows[0].count
     });
   } catch (error) {
     console.error('Error fetching stats:', error);
@@ -135,25 +133,7 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-// =================================================================
-// NEW: SERVE THE ANGULAR FRONTEND
-// =================================================================
-
-// Define the path to the compiled Angular application
-const angularAppPath = path.join(__dirname, 'frontend/frontend-app/dist/frontend-app');
-
-// Tell Express to serve static files from this path
-app.use(express.static(angularAppPath));
-
-// For any request that doesn't match an API route, send the index.html file
-// This enables Angular's client-side routing (e.g., /dashboard, /profile)
-// IMPORTANT: This route must be AFTER all your API routes
-app.use((req, res) => {
-  res.sendFile(path.join(angularAppPath, 'index.html'));
-});
-
-
-// Initialize schema and start server
+// ----- START SERVER -----
 const PORT = process.env.PORT || 3000;
 initializeSchema().then(() => {
   app.listen(PORT, () => {

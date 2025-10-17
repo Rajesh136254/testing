@@ -148,7 +148,7 @@ app.use(express.static(angularAppPath));
 // For any request that doesn't match an API route, send the index.html file
 // This enables Angular's client-side routing (e.g., /dashboard, /profile)
 // IMPORTANT: This route must be AFTER all your API routes
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(angularAppPath, 'index.html'));
 });
 
